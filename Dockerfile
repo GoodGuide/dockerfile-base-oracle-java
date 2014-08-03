@@ -5,8 +5,8 @@ RUN echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main" >> /
  && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys EEA14886 \
  && aptitude update
 
-RUN echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | /usr/bin/debconf-set-selections \
- && aptitude install --without-recommends --assume-yes  'oracle-java7-installer=7u65+7u60arm-0~webupd8~2' \
+RUN echo oracle-java6-installer shared/accepted-oracle-license-v1-1 select true | /usr/bin/debconf-set-selections \
+ && aptitude install --without-recommends --assume-yes  'oracle-java6-installer=6u45-0~webupd8~8' \
  && aptitude clean
 
-ENV JAVA_HOME /usr/lib/jvm/java-7-oracle
+ENV JAVA_HOME /usr/lib/jvm/java-6-oracle
