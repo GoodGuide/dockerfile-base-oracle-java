@@ -1,6 +1,6 @@
-FROM quay.io/goodguide/base
+FROM quay.io/goodguide/base:ubuntu-15.10-0
 
-ARG JAVA_VERSION=8
+ENV JAVA_VERSION=8
 
 RUN echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu wily main" >> /etc/apt/sources.list.d/webupd8team-java.list \
  && echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu wily main" >> /etc/apt/sources.list.d/webupd8team-java.list \
