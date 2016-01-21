@@ -62,3 +62,6 @@ RUN set -x \
            $JAVA_HOME/jre/lib/oblique-fonts \
  && apk del wget ca-certificates \
  && rm /tmp/* /var/cache/apk/*
+
+# Regenerate the JVM's shared class-data archive
+RUN java -Xshare:dump
