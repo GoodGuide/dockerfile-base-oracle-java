@@ -1,4 +1,4 @@
-FROM frolvlad/alpine-glibc:3.3
+FROM frolvlad/alpine-glibc:alpine-3.3
 
 ENV JAVA_VERSION=8 \
     JAVA_UPDATE=72 \
