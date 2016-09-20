@@ -15,7 +15,7 @@ JAVA_VERSIONS = {
   '8' => JavaVersion.new(8, 102, 14, '7cfbe0bc0391a4abe60b3e9eb2a541d2315b99b9cb3a24980e618a89229e04b7'),
 }
 
-def image_tag(build_number: nil)
+def image_tag(build_number)
   base_image_tag = ENV.fetch('IMAGE_TAG') { ENV.fetch('BASE_IMAGE_TAG') }
   tag = [
     base_image_tag,
