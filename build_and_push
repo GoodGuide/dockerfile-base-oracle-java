@@ -3,16 +3,14 @@
 require 'pathname'
 require 'tempfile'
 
-JavaVersion = Struct.new(:version, :update, :build, :sha256) do
-  def to_s
-    [version, update, build].join('-')
-  end
-end
+JavaVersion = Struct.new(:version, :update, :build, :sha256)
 
 REPO = 'quay.io/goodguide/oracle-java'
 DOCKERFILE = Pathname.new(__dir__) + ENV.fetch('DOCKERFILE')
 
 # Manually entered 'latest' versions we're aware of. Not all images will be so specific -- the choice to specify only a major version as the $JAVA_VERSION input to this script was intentional.
+#
+# Find latest versions here: http://www.oracle.com/technetwork/java/javase/downloads/index.html
 JAVA_VERSIONS = {
   '8' => JavaVersion.new(8, 102, 14, '7cfbe0bc0391a4abe60b3e9eb2a541d2315b99b9cb3a24980e618a89229e04b7'),
 }
