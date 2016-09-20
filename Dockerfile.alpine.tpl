@@ -1,18 +1,47 @@
-FROM frolvlad/alpine-glibc:3.2
+FROM quay.io/goodguide/base:{{BASE_IMAGE_TAG}}
 
-ENV JAVA_VERSION=8 \
-    JAVA_UPDATE=66 \
-    JAVA_BUILD=17 \
-    JAVA_DOWNLOAD_SHA256SUM=7e95ad5fa1c75bc65d54aaac9e9986063d0a442f39a53f77909b044cef63dc0a \
+# install GNU libc (aka glibc) (sourced from: https://github.com/frol/docker-alpine-glibc/blob/master/Dockerfile)
+RUN ALPINE_GLIBC_BASE_URL="https://github.com/sgerrand/alpine-pkg-glibc/releases/download" \
+ && ALPINE_GLIBC_PACKAGE_VERSION="2.23-r3" \
+ && ALPINE_GLIBC_BASE_PACKAGE_FILENAME="glibc-$ALPINE_GLIBC_PACKAGE_VERSION.apk" \
+ && ALPINE_GLIBC_BIN_PACKAGE_FILENAME="glibc-bin-$ALPINE_GLIBC_PACKAGE_VERSION.apk" \
+ && ALPINE_GLIBC_I18N_PACKAGE_FILENAME="glibc-i18n-$ALPINE_GLIBC_PACKAGE_VERSION.apk" \
 
-    JAVA_HOME=/usr/lib/jvm/default-jvm
+ && apk add --no-cache --virtual=.build-dependencies wget ca-certificates \
+
+ && wget -nv 'https://raw.githubusercontent.com/andyshinn/alpine-pkg-glibc/master/sgerrand.rsa.pub' \
+        -O '/etc/apk/keys/sgerrand.rsa.pub' \
+ && wget -nv \
+        "$ALPINE_GLIBC_BASE_URL/$ALPINE_GLIBC_PACKAGE_VERSION/$ALPINE_GLIBC_BASE_PACKAGE_FILENAME" \
+        "$ALPINE_GLIBC_BASE_URL/$ALPINE_GLIBC_PACKAGE_VERSION/$ALPINE_GLIBC_BIN_PACKAGE_FILENAME" \
+        "$ALPINE_GLIBC_BASE_URL/$ALPINE_GLIBC_PACKAGE_VERSION/$ALPINE_GLIBC_I18N_PACKAGE_FILENAME" \
+ && apk add --no-cache \
+        "$ALPINE_GLIBC_BASE_PACKAGE_FILENAME" \
+        "$ALPINE_GLIBC_BIN_PACKAGE_FILENAME" \
+        "$ALPINE_GLIBC_I18N_PACKAGE_FILENAME" \
+ && /usr/glibc-compat/bin/localedef --force --inputfile POSIX --charmap UTF-8 C.UTF-8 || true \
+ && echo "export LANG=C.UTF-8" > /etc/profile.d/locale.sh \
+ && apk del glibc-i18n \
+ && apk del .build-dependencies \
+ && rm -f "/root/.wget-hsts" \
+          "$ALPINE_GLIBC_BASE_PACKAGE_FILENAME" \
+          "$ALPINE_GLIBC_BIN_PACKAGE_FILENAME" \
+          "$ALPINE_GLIBC_I18N_PACKAGE_FILENAME"
+
+ENV LANG=C.UTF-8
+
+ENV JAVA_HOME=/usr/lib/jvm/default-jvm
 ENV PATH=${PATH}:${JAVA_HOME}/bin
 
+ARG JAVA_VERSION
+ARG JAVA_UPDATE
+ARG JAVA_BUILD
+ARG JAVA_DOWNLOAD_SHA256SUM
 RUN set -x \
- && apk add --update wget ca-certificates \
+ && apk add --virtual=.build-dependencies --update wget ca-certificates \
  && cd /tmp \
 
-# about nsswitch.conf - see https://registry.hub.docker.com/u/frolvlad/alpine-oraclejdk8/dockerfile/
+ # about nsswitch.conf - see https://registry.hub.docker.com/u/frolvlad/alpine-oraclejdk8/dockerfile/
  && echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf \
 
  && wget -nv --header "Cookie: oraclelicense=accept-securebackup-cookie;" -O jdk.tgz \
@@ -60,5 +89,6 @@ RUN set -x \
            $JAVA_HOME/jre/lib/jfr.jar \
            $JAVA_HOME/jre/lib/jfr \
            $JAVA_HOME/jre/lib/oblique-fonts \
- && apk del wget ca-certificates \
+
+ && apk del .build-dependencies \
  && rm /tmp/* /var/cache/apk/*

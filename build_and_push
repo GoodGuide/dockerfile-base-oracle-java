@@ -1,0 +1,142 @@
+#!/usr/bin/env ruby
+
+require 'pathname'
+require 'tempfile'
+
+JavaVersion = Struct.new(:version, :update, :build, :sha256) do
+  def to_s
+    [version, update, build].join('-')
+  end
+end
+
+REPO = 'quay.io/goodguide/oracle-java'
+DOCKERFILE = Pathname.new(__dir__) + ENV.fetch('DOCKERFILE')
+
+# Manually entered 'latest' versions we're aware of. Not all images will be so specific -- the choice to specify only a major version as the $JAVA_VERSION input to this script was intentional.
+JAVA_VERSIONS = {
+  '8' => JavaVersion.new(8, 102, 14, '7cfbe0bc0391a4abe60b3e9eb2a541d2315b99b9cb3a24980e618a89229e04b7'),
+}
+
+def image_tag(build_number: nil)
+  base_image_tag = ENV.fetch('IMAGE_TAG') { ENV.fetch('BASE_IMAGE_TAG') }
+  tag = [
+    base_image_tag,
+    "java#{java_version.version}",
+    build_number,
+  ].compact.join('-')
+  [REPO, tag].join(':')
+end
+
+def image_tags
+  tags = [ image_tag ]
+  tags << image_tag(travis_build_number) if travis?
+  tags
+end
+
+def travis?
+  ENV.key?('TRAVIS_BUILD_NUMBER')
+end
+
+def travis_build_number
+  ENV.fetch('TRAVIS_BUILD_NUMBER').to_i
+end
+
+def java_version
+  JAVA_VERSIONS.fetch(ENV.fetch('JAVA_VERSION'))
+end
+
+def git_revision
+  sha = `git rev-parse HEAD`.chomp
+  if system('git', 'diff', '--quiet')
+    sha
+  else
+    [sha, 'dirty'].join('-')
+  end
+end
+
+def render_template(template_file)
+  template_file.read.to_s.gsub(/\{\{([A-Z_]+?)\}\}/) { |match|
+    ENV[$1]
+  }
+end
+
+def with_dockerfile
+  DOCKERFILE.exist? or fail "File not found: #{DOCKERFILE}"
+
+  if DOCKERFILE.extname == '.tpl'
+    Tempfile.create('Dockerfile.tmp', Dir.pwd) do |file|
+      file.write render_template(DOCKERFILE)
+      file.close
+      yield(Pathname.new(file.path))
+    end
+  else
+    yield(DOCKERFILE)
+  end
+end
+
+def docker(*args)
+  command = ['docker', *args]
+  warn "> #{command.join(' ')}"
+  system(*command) or fail "Command failed: #$?"
+end
+
+def parse_dockerfile_for_build_args(dockerfile_path)
+  dockerfile_path.readlines.inject([]) { |args, line|
+    if (m = /\A\s*ARG\s+(\w+)=?/.match(line))
+      args << m[1]
+    end
+    args
+  }
+end
+
+def docker_build_cli_build_args(build_arg_names)
+  build_arg_names.inject([]) do |build_args, arg_name|
+    value = case arg_name
+    when 'JAVA_VERSION'
+      java_version.version
+    when 'JAVA_UPDATE'
+      java_version.update
+    when 'JAVA_BUILD'
+      java_version.build
+    when 'JAVA_DOWNLOAD_SHA256SUM'
+      java_version.sha256
+    else
+      fail "IDK what to do with build-arg #{arg_name}"
+    end
+    build_args.concat(['--build-arg', "#{arg_name}=#{value}"])
+  end
+end
+
+def build(tag)
+  with_dockerfile do |dockerfile|
+    defined_args = parse_dockerfile_for_build_args(dockerfile)
+
+    docker 'build',
+           # '--pull',
+           '--file', dockerfile.relative_path_from(Pathname.pwd).to_s,
+           '--tag', tag,
+           '--label', "com.goodguide.base-image.base-oracle-java.git-revision=#{git_revision}",
+           *docker_build_cli_build_args(defined_args),
+           '.'
+  end
+
+  warn "\nSuccessfully built the image #{tag}"
+end
+
+def tag_and_push(built_tag, *additional_tags)
+  additional_tags.each do |additional_tag|
+    docker 'tag', built_tag, additional_tag
+    warn "Tagged the image #{additional_tag}"
+  end
+
+  if travis?
+    docker 'push', image_tag
+    additional_tags.each do |additional_tag|
+      docker 'push', additional_tag
+    end
+    warn "\nSuccessfully pushed the images #{[built_tag, *additional_tags].join(', ')}"
+  end
+end
+
+build(image_tags.first)
+tag_and_push(*image_tags)

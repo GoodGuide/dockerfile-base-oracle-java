@@ -1,0 +1,24 @@
+---
+sudo: required
+
+services:
+  - docker
+
+language: ruby
+
+env:
+  - DOCKERFILE=Dockerfile.alpine.tpl
+    BASE_IMAGE_TAG=alpine-3.4
+    JAVA_VERSION=8
+
+  - DOCKERFILE=Dockerfile.ubuntu-16.04
+    IMAGE_TAG=ubuntu-16.04
+    JAVA_VERSION=8
+
+install: true
+
+before_script:
+  - docker info
+  - docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}" quay.io
+
+script: ./build_and_push
